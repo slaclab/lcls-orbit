@@ -51,4 +51,3 @@ curdoc().add_root(
 
 curdoc().add_periodic_callback(long_plot_x.update, 500)
 curdoc().add_periodic_callback(long_plot_y.update, 500)
-#curdoc().add_periodic_callback(table_monitor.poll, 250)

@@ -35,6 +35,9 @@ class OrbitDisplay:
         controller: Controller,
         positions: dict,
         longitudinal_labels: Dict[float, str] = None,
+        height: int = 400,
+        width: int = 600,
+        bar_width = None,
     ):
 
         # cagetmany
@@ -43,7 +46,6 @@ class OrbitDisplay:
 
 
         self._pv_monitors = {}
-        self._width = 0.05
 
         for variable in variables:
             position = positions.get(variable)
@@ -51,21 +53,27 @@ class OrbitDisplay:
                 self.z.append(position)
             else:
                 logger.error(
-                    "Unable to use %s in LongitudinalPlot. z attribute is missing.",
+                    "Unable to use %s in LongitudinalPlot. z value is missing.",
                     variable.name,
                 )
+
+        if not bar_width:
+            self._bar_width = (max(self.z) - min(self.z)) / len(positions)
+        else:
+            self._bar_width = bar_width
+
 
         self.source = ColumnDataSource(dict(x=[], y=[]))
 
         self.plot = figure(
             y_range=(-1, 1),
-            x_range=(min(self.z) - self._width / 2.0, max(self.z) + self._width / 2.0),
-            width=400,
-            height=550,
+            x_range=(min(self.z) - self._bar_width / 2.0, max(self.z) + self._bar_width / 2.0),
+            width=width,
+            height=height,
             toolbar_location="right",
             title="X",
         )
-        self.plot.vbar(x="x", bottom=0, top="y", width=self._width, source=self.source)
+        self.plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.source)
 
         self.plot.xgrid.grid_line_color = None
         self.plot.ygrid.grid_line_color = None
