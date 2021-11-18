@@ -1,0 +1,10 @@
+name: lcls-orbit
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - lume-model
+  - lume-epics
+  - pandas
+  - pip:
+    - git+https://github.com/slaclab/lcls-live.git@v0.2.0
