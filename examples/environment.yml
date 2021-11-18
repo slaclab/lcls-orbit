@@ -4,7 +4,13 @@ channels:
 dependencies:
   - python=3.9
   - lume-model
-  - lume-epics
+  - bokeh
+  - epics-base
+  - epicscorelibs
+  - pcaspy
+  - pyepics
+  - p4p
   - pandas
   - pip:
     - git+https://github.com/slaclab/lcls-live.git@v0.2.0
+    - git+https://github.com/jacquelinegarrahan/lume-epics.git@polling-controller
