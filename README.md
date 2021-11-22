@@ -21,7 +21,7 @@ $ conda activate lcls-orbit
 
 ### Configure Remote EPICS access (optional)
 
-The `lcls-live` utility functions allow configuring remote access to EPICS variables. In order to do this, the following variables must be set:
+The `lcls-live` utility functions allow configuring remote access to EPICS variables. In order to do this, the following environment variables must be set:
 
 | Variable             | Description                          |
 |----------------------|--------------------------------------|
