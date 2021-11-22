@@ -54,7 +54,7 @@ class OrbitDisplay:
             width=width,
             height=height,
             toolbar_location="right",
-            title="X",
+            title="X (mm)",
         )
         self.x_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.x_source)
 
@@ -77,9 +77,9 @@ class OrbitDisplay:
             width=width,
             height=height,
             toolbar_location="right",
-            title="Y",
+            title="Y (mm)",
         )
-        self.y_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.x_source)
+        self.y_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.y_source)
 
         self.y_plot.xgrid.grid_line_color = None
         self.y_plot.ygrid.grid_line_color = None
@@ -89,7 +89,7 @@ class OrbitDisplay:
             self.y_plot.xaxis.major_label_overrides = longitudinal_labels
 
         self.y_plot.ygrid.grid_line_color = None
-        self.y_plot.xaxis.axis_label = "z"
+        self.y_plot.xaxis.axis_label = "z (m)"
         self.y_plot.outline_line_color = None
 
 

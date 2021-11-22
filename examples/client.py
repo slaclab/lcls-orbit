@@ -1,11 +1,9 @@
 import pandas as pd
 from bokeh.io import curdoc
-from bokeh import palettes
 from bokeh.layouts import column, row
-from bokeh.models import LinearColorMapper, Div
 
+from bokeh.themes import built_in_themes
 from lume_epics.client.controller import Controller
-from lume_epics.client.monitors import PVTable
 from lume_model.variables import ScalarOutputVariable, TableVariable
 
 from lcls_orbit.widgets import OrbitDisplay
@@ -42,6 +40,7 @@ long_plot = OrbitDisplay(
 )
 
 # render
+curdoc().theme = 'dark_minimal'
 curdoc().title = "Demo App"
 curdoc().add_root(
     column(
@@ -49,5 +48,5 @@ curdoc().add_root(
         long_plot.y_plot,
     )
 )
-
+curdoc().theme = 'dark_minimal'
 curdoc().add_periodic_callback(long_plot.update, 500)
