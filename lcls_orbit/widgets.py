@@ -3,14 +3,12 @@ import logging
 import numpy as np
 
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, ColorMapper, Button, Span
+from bokeh.models import ColumnDataSource, Span
 
 
-from lume_model.variables import Variable, ScalarVariable, TableVariable
+from lume_model.variables import TableVariable
 from lume_epics.client.controller import (
-    Controller,
-    DEFAULT_IMAGE_DATA,
-    DEFAULT_SCALAR_VALUE,
+    Controller
 )
 from lume_epics.client.monitors import PVTable
 
@@ -18,14 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class OrbitDisplay:
-
-    """
-    Todo:
-    labels for z axis +
-    toolkits for zooming etc.
-    document
-    dynamic width for markers
-    scaling?
+    """Object holding orbit display widgets.
 
     """
 
@@ -36,10 +27,11 @@ class OrbitDisplay:
         longitudinal_labels: Dict[float, str] = None,
         height: int = 400,
         width: int = 600,
-        bar_width = None,
+        bar_width: int = None,
     ):
 
         self.z = []
+
         # cagetmany
         for row, value in table.table_data["Z"].items():
             self.z.append(value)
@@ -68,8 +60,6 @@ class OrbitDisplay:
 
         self.x_plot.xgrid.grid_line_color = None
         self.x_plot.ygrid.grid_line_color = None
-
-        
 
         if longitudinal_labels:
             self.x_plot.xaxis.ticker = list(longitudinal_labels.keys())
@@ -108,8 +98,6 @@ class OrbitDisplay:
         Callback which updates the plot to reflect updated process variable values or
         new process variable.
 
-        Args:
-            live_variable (str): Variable to display
         """
         vals = self._monitor.poll()
 

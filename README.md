@@ -8,12 +8,16 @@ The demo can be run using a port forwarding to the lcls network with `lcls-live`
 
 
 ### First, create the `lcls-orbit` conda environment:
-An environment file is packaged in examples.
+An environment file is packaged in examples. This may be used to create an appropriate environment:
 
 ```
 $ conda env create -f examples/environment.yml
 ```
 
+Now, activate this environment:
+```
+$ conda activate lcls-orbit
+```
 
 ### Configure Remote EPICS access (optional)
 
@@ -40,6 +44,9 @@ $ bokeh serve examples/client.py --show
 
 
 # TODO
+- [x] Table variable/monitor
+- [x] Sample widget
+- [x] Example (with lcls-live)
 - [ ] Passable labels for z areas
 - [ ] Entry for axis extents. Not available in current bokeh tooltips
 - [ ] Documentation
