@@ -3,7 +3,6 @@ channels:
   - conda-forge
 dependencies:
   - python=3.9
-  - lume-model
   - bokeh
   - epics-base
   - epicscorelibs
@@ -14,4 +13,5 @@ dependencies:
   - pip
   - pip:
     - git+https://github.com/slaclab/lcls-live.git@v0.2.0
+    - git+https://github.com/slaclab/lume-model.git@master
     - git+https://github.com/jacquelinegarrahan/lume-epics.git@polling-controller
