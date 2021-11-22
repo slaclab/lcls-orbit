@@ -6,7 +6,7 @@ from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, ColorMapper, Button, Span
 
 
-from lume_model.variables import Variable, ScalarVariable
+from lume_model.variables import Variable, ScalarVariable, TableVariable
 from lume_epics.client.controller import (
     Controller,
     DEFAULT_IMAGE_DATA,
@@ -31,41 +31,32 @@ class OrbitDisplay:
 
     def __init__(
         self,
-        variables: List[Variable],
+        table: TableVariable,
         controller: Controller,
-        positions: dict,
         longitudinal_labels: Dict[float, str] = None,
         height: int = 400,
         width: int = 600,
         bar_width = None,
     ):
 
-        # cagetmany
         self.z = []
-        self._monitor = PVTable(list(variables.values()), controller)
+        # cagetmany
+        for row, value in table.table_data["Z"].items():
+            self.z.append(value)
 
-
-        self._pv_monitors = {}
-
-        for variable in variables:
-            position = positions.get(variable)
-            if position is not None:
-                self.z.append(position)
-            else:
-                logger.error(
-                    "Unable to use %s in LongitudinalPlot. z value is missing.",
-                    variable.name,
-                )
+        self._monitor = PVTable(table, controller)
 
         if not bar_width:
-            self._bar_width = (max(self.z) - min(self.z)) / len(positions)
+            self._bar_width = (max(self.z) - min(self.z)) / len(self.z)
         else:
             self._bar_width = bar_width
 
 
-        self.source = ColumnDataSource(dict(x=[], y=[]))
+        self.x_source = ColumnDataSource(dict(x=[], y=[]))
+        self.y_source = ColumnDataSource(dict(x=[], y=[]))
 
-        self.plot = figure(
+        # setup x plot
+        self.x_plot = figure(
             y_range=(-1, 1),
             x_range=(min(self.z) - self._bar_width / 2.0, max(self.z) + self._bar_width / 2.0),
             width=width,
@@ -73,18 +64,44 @@ class OrbitDisplay:
             toolbar_location="right",
             title="X",
         )
-        self.plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.source)
+        self.x_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.x_source)
 
-        self.plot.xgrid.grid_line_color = None
-        self.plot.ygrid.grid_line_color = None
+        self.x_plot.xgrid.grid_line_color = None
+        self.x_plot.ygrid.grid_line_color = None
+
+        
 
         if longitudinal_labels:
-            self.plot.xaxis.ticker = list(longitudinal_labels.keys())
-            self.plot.xaxis.major_label_overrides = longitudinal_labels
+            self.x_plot.xaxis.ticker = list(longitudinal_labels.keys())
+            self.x_plot.xaxis.major_label_overrides = longitudinal_labels
 
-        self.plot.ygrid.grid_line_color = None
-        self.plot.xaxis.axis_label = "z"
-        self.plot.outline_line_color = None
+        self.x_plot.ygrid.grid_line_color = None
+        self.x_plot.xaxis.axis_label = "z"
+        self.x_plot.outline_line_color = None
+
+
+        # setup y plot
+        self.y_plot = figure(
+            y_range=(-1, 1),
+            x_range=(min(self.z) - self._bar_width / 2.0, max(self.z) + self._bar_width / 2.0),
+            width=width,
+            height=height,
+            toolbar_location="right",
+            title="Y",
+        )
+        self.y_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.x_source)
+
+        self.y_plot.xgrid.grid_line_color = None
+        self.y_plot.ygrid.grid_line_color = None
+
+        if longitudinal_labels:
+            self.y_plot.xaxis.ticker = list(longitudinal_labels.keys())
+            self.y_plot.xaxis.major_label_overrides = longitudinal_labels
+
+        self.y_plot.ygrid.grid_line_color = None
+        self.y_plot.xaxis.axis_label = "z"
+        self.y_plot.outline_line_color = None
+
 
     def update(self) -> None:
         """
@@ -94,14 +111,26 @@ class OrbitDisplay:
         Args:
             live_variable (str): Variable to display
         """
-        vals = list(self._monitor.poll().values())
-        y = np.array(vals, dtype=np.float64)
+        vals = self._monitor.poll()
+
+
+        x = np.array([vals["X"][device] for device in vals["X"]], dtype=np.float64)
+        y = np.array([vals["Y"][device] for device in vals["Y"]], dtype=np.float64)
+
+        # add hline if 0 inside
+        if min(x) < 0 < max(x):
+            hline = Span(
+                location=0, dimension="width", line_color="black", line_width=2
+            )
+            self.x_plot.add_layout(hline)
+
 
         # add hline if 0 inside
         if min(y) < 0 < max(y):
             hline = Span(
                 location=0, dimension="width", line_color="black", line_width=2
             )
-            self.plot.add_layout(hline)
+            self.y_plot.add_layout(hline)
 
-        self.source.data.update({"x": self.z, "y": y})
+        self.x_source.data.update({"x": self.z, "y": x})
+        self.y_source.data.update({"x": self.z, "y": y})
