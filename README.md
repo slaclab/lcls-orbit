@@ -37,3 +37,11 @@ $ configure-epics-remote
 ```
 $ bokeh serve examples/client.py --show
 ```
+
+
+# TODO
+- [ ] Passable labels for z areas
+- [ ] Entry for axis extents. Not available in current bokeh tooltips
+- [ ] Documentation
+- [x] dynamic width for markers
+- [ ] LUME-EPICS improvement projects. Scalable controller service etc.
