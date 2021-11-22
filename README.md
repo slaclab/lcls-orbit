@@ -52,3 +52,7 @@ $ bokeh serve examples/client.py --show
 - [ ] Documentation
 - [x] dynamic width for markers
 - [ ] LUME-EPICS improvement projects. Scalable controller service etc.
+- [ ] yaml parsing for table variables
+- [ ] Hover device names
+- [ ] Accelerator layout rendered
+- [ ] Linked horizontal scaling
