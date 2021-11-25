@@ -11,6 +11,8 @@ from lume_epics.client.controller import (
     Controller
 )
 from lume_epics.client.monitors import PVTable
+from bokeh.models import HoverTool
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +46,16 @@ class OrbitDisplay:
             self._bar_width = bar_width
 
 
-        self.x_source = ColumnDataSource(dict(x=[], y=[]))
-        self.y_source = ColumnDataSource(dict(x=[], y=[]))
+        self.x_source = ColumnDataSource(dict(x=[], y=[], device=[]))
+        self.y_source = ColumnDataSource(dict(x=[], y=[], device=[]))
+
+        TOOLTIPS_x = [
+            ("device", "@device"),
+            ("value", "@y"),
+            ("location", "@x")
+        ]
+        
+        x_hover = HoverTool(tooltips=TOOLTIPS_x)
 
         # setup x plot
         self.x_plot = figure(
@@ -55,6 +65,7 @@ class OrbitDisplay:
             height=height,
             toolbar_location="right",
             title="X (mm)",
+            tools=[x_hover]
         )
         self.x_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.x_source)
 
@@ -66,18 +77,27 @@ class OrbitDisplay:
             self.x_plot.xaxis.major_label_overrides = longitudinal_labels
 
         self.x_plot.ygrid.grid_line_color = None
-        self.x_plot.xaxis.axis_label = "z"
+        self.x_plot.xaxis.axis_label = "z (m)"
         self.x_plot.outline_line_color = None
 
+        TOOLTIPS_y = [
+            ("device", "@device"),
+            ("value", "@y"),
+            ("location", "@x")
+        ]
+
+        y_hover = HoverTool(tooltips=TOOLTIPS_y)
 
         # setup y plot
         self.y_plot = figure(
             y_range=(-1, 1),
-            x_range=(min(self.z) - self._bar_width / 2.0, max(self.z) + self._bar_width / 2.0),
+            x_range=self.x_plot.x_range,
             width=width,
             height=height,
             toolbar_location="right",
             title="Y (mm)",
+            tools = [y_hover],
+            tooltips=TOOLTIPS_y
         )
         self.y_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.y_source)
 
@@ -101,7 +121,7 @@ class OrbitDisplay:
         """
         vals = self._monitor.poll()
 
-
+        devices = [device for device in vals['X']]
         x = np.array([vals["X"][device] for device in vals["X"]], dtype=np.float64)
         y = np.array([vals["Y"][device] for device in vals["Y"]], dtype=np.float64)
 
@@ -120,5 +140,5 @@ class OrbitDisplay:
             )
             self.y_plot.add_layout(hline)
 
-        self.x_source.data.update({"x": self.z, "y": x})
-        self.y_source.data.update({"x": self.z, "y": y})
+        self.x_source.data.update({"x": self.z, "y": x, "device": devices})
+        self.y_source.data.update({"x": self.z, "y": y, "device": devices})

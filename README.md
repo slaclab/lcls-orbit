@@ -48,11 +48,12 @@ $ bokeh serve examples/client.py --show
 - [x] Sample widget
 - [x] Example (with lcls-live)
 - [ ] Passable labels for z areas
-- [ ] Entry for axis extents. Not available in current bokeh tooltips
 - [ ] Documentation
 - [x] dynamic width for markers
 - [ ] LUME-EPICS improvement projects. Scalable controller service etc.
 - [ ] yaml parsing for table variables
-- [ ] Hover device names
+- [x] Hover device names
 - [ ] Accelerator layout rendered
-- [ ] Linked horizontal scaling
+- [x] Linked horizontal scaling
+- [ ] Color maps
+- [ ] Toggle hard/soft
