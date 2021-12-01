@@ -6,11 +6,11 @@ from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, Span
 
 
-from lume_model.variables import TableVariable
+from lume_model.variables import TableVariable, ScalarVariable
 from lume_epics.client.controller import (
     Controller
 )
-from lume_epics.client.monitors import PVTable
+from lume_epics.client.monitors import PVTable, PVScalar
 from bokeh.models import HoverTool
 
 
@@ -30,6 +30,9 @@ class OrbitDisplay:
         height: int = 400,
         width: int = 600,
         bar_width: int = None,
+        color_var: ScalarVariable = None,
+        color_map: list = None,
+        extents: list = None,
     ):
 
         self.z = []
@@ -39,20 +42,25 @@ class OrbitDisplay:
             self.z.append(value)
 
         self._monitor = PVTable(table, controller)
+        self._controller = controller
+        if color_var is not None:
+            # TODO check all exist
+            self._color_monitor = PVScalar(color_var, controller)
+            self._extents = np.array(extents)
+            self._color_map = color_map
 
         if not bar_width:
-            self._bar_width = (max(self.z) - min(self.z)) / len(self.z)
+            self._bar_width = (max(self.z) - min(self.z)) / (len(self.z) + 1)
         else:
             self._bar_width = bar_width
 
-
-        self.x_source = ColumnDataSource(dict(x=[], y=[], device=[]))
-        self.y_source = ColumnDataSource(dict(x=[], y=[], device=[]))
+        self.x_source = ColumnDataSource(dict(x=[], y=[], device=[], color=[]))
+        self.y_source = ColumnDataSource(dict(x=[], y=[], device=[], color=[]))
 
         TOOLTIPS_x = [
             ("device", "@device"),
             ("value", "@y"),
-            ("location", "@x")
+            ("location", "@x{0.0}")
         ]
         
         x_hover = HoverTool(tooltips=TOOLTIPS_x)
@@ -65,10 +73,9 @@ class OrbitDisplay:
             height=height,
             toolbar_location="right",
             title="X (mm)",
-            tools=[x_hover]
         )
-        self.x_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.x_source)
-
+        self.x_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.x_source,  color="color")
+        self.x_plot.add_tools(x_hover)
         self.x_plot.xgrid.grid_line_color = None
         self.x_plot.ygrid.grid_line_color = None
 
@@ -96,11 +103,9 @@ class OrbitDisplay:
             height=height,
             toolbar_location="right",
             title="Y (mm)",
-            tools = [y_hover],
-            tooltips=TOOLTIPS_y
         )
-        self.y_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.y_source)
-
+        self.y_plot.vbar(x="x", bottom=0, top="y", width=self._bar_width, source=self.y_source, color="color")
+        self.y_plot.add_tools(y_hover)
         self.y_plot.xgrid.grid_line_color = None
         self.y_plot.ygrid.grid_line_color = None
 
@@ -112,6 +117,15 @@ class OrbitDisplay:
         self.y_plot.xaxis.axis_label = "z (m)"
         self.y_plot.outline_line_color = None
 
+    def update_table(self, table) -> None:
+        self._monitor = PVTable(table, self._controller)
+
+        self.z = []
+
+        # cagetmany
+        for row, value in table.table_data["Z"].items():
+            self.z.append(value)
+
 
     def update(self) -> None:
         """
@@ -120,6 +134,13 @@ class OrbitDisplay:
 
         """
         vals = self._monitor.poll()
+        if self._color_monitor is not None:
+            color_val = self._color_monitor.poll()
+            idx = (np.abs(self._extents - color_val)).argmin()
+            color = [self._color_map[idx] for device in vals["X"]]
+
+        else:
+            color = ["#212494" for device in vals["X"] ]
 
         devices = [device for device in vals['X']]
         x = np.array([vals["X"][device] for device in vals["X"]], dtype=np.float64)
@@ -140,5 +161,12 @@ class OrbitDisplay:
             )
             self.y_plot.add_layout(hline)
 
-        self.x_source.data.update({"x": self.z, "y": x, "device": devices})
-        self.y_source.data.update({"x": self.z, "y": y, "device": devices})
+        self.x_source.data.update({"x": self.z, "y": x, "device": devices, "color": color})
+        self.y_source.data.update({"x": self.z, "y": y, "device": devices, "color": color})
+
+    def update_colormap(self, color_var, cmap, extents):
+        self._color_map = cmap
+        self._extents = np.array(range(extents[0], extents[1], len(self._color_map)))
+        self._color_monitor = PVScalar(color_var, self._controller)
+
+
