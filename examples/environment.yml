@@ -4,12 +4,11 @@ channels:
 dependencies:
   - python=3.9
   - bokeh
-  - epics-base
-  - epicscorelibs
   - pcaspy
   - pyepics
   - p4p
   - pandas
+  - flask
   - pip
   - pip:
     - git+https://github.com/slaclab/lcls-live.git@v0.2.0

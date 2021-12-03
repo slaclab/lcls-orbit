@@ -13,16 +13,11 @@ from lume_model.variables import ScalarOutputVariable, TableVariable
 
 from lcls_orbit.widgets import OrbitDisplay
 
-hxr_df= pd.read_csv("examples/cu_hxr_basic.csv")
+hxr_df= pd.read_csv("./examples/files/cu_hxr_basic.csv")
 hxr_BPMS_df = hxr_df[hxr_df["device_name"].apply(lambda x: isinstance(x, str) and "BPMS" in x)]
 
-sxr_df= pd.read_csv("examples/cu_hxr_basic.csv")
+sxr_df= pd.read_csv("./examples/files/cu_sxr_basic.csv")
 sxr_BPMS_df = sxr_df[sxr_df["device_name"].apply(lambda x: isinstance(x, str) and "BPMS" in x)]
-
-
-
-sxr_cmp = [(18, 9, 28), (38, 28, 39), (78, 18, 40), (98, 70, 82), (84, 23, 98)]
-bokeh_colors = ["#%02x%02x%02x" % (r, g, b) for r, g, b in sxr_cmp]
 
 
 positions = {}
@@ -72,11 +67,11 @@ controller = Controller("ca", variables, {}, prefix=None, auto_monitor=True)
 
 # create longitudinal plot
 long_plot = OrbitDisplay(
-    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=sxr_cmp, extents=[0,5]
+    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=Blues9, extents=[0,5], bar_width=5
 )
 
 label = Div(
-    text=f"<b>HXR</b>",
+    text="<b>HXR</b>",
     style={
         "font-size": "150%",
         "color": "#3881e8",
@@ -86,30 +81,33 @@ label = Div(
 )
 
 def toggle_callback(event):
-
-    label.text=event.item
-
+    """Callback for toggle events.
+    
+    """
     if event.item == "sxr":
+        label.text="<b>SXR</b>"
+        label.style.update({"color":  "#c40000"})
         long_plot.update_table(sxr_table_var)
         long_plot.update_colormap(sxr_shading_var, Reds9, extents = [0,5])
 
     elif event.item == "hxr":
+        label.text="<b>HXR</b>"
+        label.style.update({"color": "#3881e8"})
         long_plot.update_table(hxr_table_var)
         long_plot.update_colormap(hxr_shading_var, Blues9, extents = [0,5])
 
 
-
 menu = [("SXR", "sxr"), ("HXR", "hxr")]
 
-dropdown = Dropdown(label="line", button_type="default", menu=menu)
+dropdown = Dropdown(label="Beamline", button_type="default", menu=menu)
 dropdown.on_click(toggle_callback)
 
 # render
-curdoc().theme = 'dark_minimal'
+curdoc().theme = 'contrast'
 curdoc().title = "Demo App"
 curdoc().add_root(
     column(
-        row(column(label), column(dropdown)),
+        row(column(dropdown), column(label)),
         long_plot.x_plot,
         long_plot.y_plot,
     )
