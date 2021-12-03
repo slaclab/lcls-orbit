@@ -8,9 +8,9 @@ dependencies:
   - pyepics
   - p4p
   - pandas
-  - flask
   - pip
   - pip:
     - git+https://github.com/slaclab/lcls-live.git@v0.2.0
     - git+https://github.com/slaclab/lume-model.git@master
     - git+https://github.com/jacquelinegarrahan/lume-epics.git@polling-controller
+    - git+https://github.com/jacquelinegarrahan/lcls-orbit.git
