@@ -1,0 +1,2 @@
+include versioneer.py
+include lcls_orbit/_version.py
