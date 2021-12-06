@@ -103,7 +103,7 @@ dropdown = Dropdown(label="Beamline", button_type="default", menu=menu)
 dropdown.on_click(toggle_callback)
 
 # render
-curdoc().theme = 'contrast'
+curdoc().theme = 'light_minimal'
 curdoc().title = "Demo App"
 curdoc().add_root(
     column(
