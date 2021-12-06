@@ -39,7 +39,7 @@ $ configure-epics-remote
 
 ### Launch client
 ```
-$ bokeh serve examples/client.py --show
+$ bokeh serve examples/lcls_orbit_display --show
 ```
 
 
