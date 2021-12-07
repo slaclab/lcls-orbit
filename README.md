@@ -39,8 +39,27 @@ $ configure-epics-remote
 
 ### Launch client
 ```
-$ bokeh serve examples/lcls_orbit_display --show
+$ bokeh serve examples/lcls_orbit_display --port 5006 --show
 ```
+
+### Running on mcc-simul
+
+If running on mcc-simul, no remote EPICS configuration is needed. Instead:
+
+Start client process:
+```
+$ bokeh serve examples/lcls_orbit_display --port 5006 &
+```
+
+Open port forwarding:
+```
+$ ssh -fL 5006:localhost:5006 mcc-simul
+```
+
+Using local browser, navigate to http://localhost:5006
+
+
+
 
 
 # TODO

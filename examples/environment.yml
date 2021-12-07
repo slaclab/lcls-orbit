@@ -8,6 +8,7 @@ dependencies:
   - pyepics
   - p4p
   - pandas
+  - matplotlib
   - pip
   - pip:
     - git+https://github.com/slaclab/lcls-live.git@v0.2.0
