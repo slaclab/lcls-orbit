@@ -53,7 +53,7 @@ $ bokeh serve examples/lcls_orbit_display --port 5006 &
 
 Open port forwarding:
 ```
-$ ssh -fL 5006:localhost:5006 mcc-simul
+$ ssh -fNL 5006:localhost:5006 mcc-simul
 ```
 
 Using local browser, navigate to http://localhost:5006
@@ -74,5 +74,20 @@ Using local browser, navigate to http://localhost:5006
 - [x] Hover device names
 - [ ] Accelerator layout rendered
 - [x] Linked horizontal scaling
-- [ ] Color maps
-- [ ] Toggle hard/soft
+- [x] Color maps
+- [x] Toggle hard/soft
+
+
+
+- [ ] Functionality to show difference to reference, button to collect reference
+ - 0 reference button, collect 500
+ - Plot difference of pv value to the reference
+ - Toggle referenced view on/off
+
+What do BPMS serve already?
+- [ ] Colormap on side
+- [ ] (maybe, tbd) Bar showing RMS fluctuations
+- [ ] Check out device attributes and report back
+- [ ] Add more ticks to z
+- [ ] Add area
+- 
