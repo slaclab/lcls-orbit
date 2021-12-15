@@ -61,7 +61,7 @@ variables['GDET:FEE1:241:ENRC'] = hxr_shading_var
 variables['EM1K0:GMD:HPS:milliJoulesPerPulse'] = sxr_shading_var
 
 # set up controller
-controller = Controller("ca", variables, {}, prefix=None, auto_monitor=True)
+controller = Controller("ca", variables, {}, prefix=None, auto_monitor=False, monitor_poll_timeout=0.01)
 
 
 
