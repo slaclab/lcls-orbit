@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, Span, Button
+from bokeh.models import ColumnDataSource, Span, Button, ColorBar, LinearColorMapper
 
 
 from lume_model.variables import TableVariable, ScalarVariable
@@ -148,6 +148,13 @@ class OrbitDisplay:
         self.x_plot.line(x="x", y="y", source=self._x_ref_source)
         self.y_plot.line(x="x", y="y", source=self._y_ref_source)
 
+
+        color_mapper = LinearColorMapper(palette=color_map, low=extents[0], high=extents[1])
+        self._color_bar = ColorBar(color_mapper=color_mapper)
+
+
+        self.x_plot.add_layout(self._color_bar, 'right')
+
     def update_table(self, table: dict) -> None:
         """Assign new table variable.
         
@@ -257,6 +264,9 @@ class OrbitDisplay:
         self._color_map = cmap
         self._extents = np.array(range(extents[0], extents[1], len(self._color_map)))
         self._color_monitor = PVScalar(color_var, self._controller)
+        self._color_bar.color_mapper.palette = cmap
+
+        
 
 
     def _collect_reference(self):

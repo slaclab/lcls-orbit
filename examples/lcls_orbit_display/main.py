@@ -5,7 +5,7 @@ from matplotlib.colors import ListedColormap
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
 
-from bokeh.models import CustomJS, Dropdown, Div
+from bokeh.models import CustomJS, Dropdown, Div, ColorBar, LinearColorMapper
 from bokeh.palettes import Blues9, Reds9
 from bokeh.themes import built_in_themes
 from lume_epics.client.controller import Controller
@@ -80,6 +80,8 @@ label = Div(
     },
 )
 
+
+
 def toggle_callback(event):
     """Callback for toggle events.
     
@@ -97,6 +99,7 @@ def toggle_callback(event):
         long_plot.update_colormap(hxr_shading_var, Blues9, extents = [0,5])
 
 
+
 menu = [("SXR", "sxr"), ("HXR", "hxr")]
 
 dropdown = Dropdown(label="Beamline", button_type="default", menu=menu)
@@ -110,8 +113,8 @@ curdoc().title = "Demo App"
 curdoc().add_root(
     column(
         row(column(dropdown), column(label), column(long_plot.reference_button), column(long_plot.reset_reference_button)),
-        long_plot.x_plot,
-        long_plot.y_plot,
+        long_plot.x_plot, 
+        long_plot.y_plot
     )
 )
 
