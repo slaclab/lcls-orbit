@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, Span
+from bokeh.models import ColumnDataSource, Span, Button
 
 
 from lume_model.variables import TableVariable, ScalarVariable
@@ -33,6 +33,7 @@ class OrbitDisplay:
         color_var: ScalarVariable = None,
         color_map: list = None,
         extents: list = None,
+        reference_n: int = 15
     ):
 
         # construct z
@@ -56,8 +57,6 @@ class OrbitDisplay:
                 raise ValueError("Color map not provided.")
             else:
                 self._color_map = color_map
-
-            
 
         if not bar_width:
             self._bar_width = (max(self._z) - min(self._z)) / (len(self._z) + 1)
@@ -127,6 +126,28 @@ class OrbitDisplay:
         self.y_plot.xaxis.axis_label = "z (m)"
         self.y_plot.outline_line_color = None
 
+        # indicator whether collecting reference
+        self._collecting_reference = False
+        # store reference
+        self._reference_measurements = {"X": {row: [] for row in table.rows}, "Y": {row: [] for row in table.rows}}
+        # how many reference steps to collect
+        self._reference_n = reference_n
+        self._reference_count = reference_n
+        # reference button
+        self.reference_button = Button(label="Collect Reference")
+        self.reference_button.on_click(self._collect_reference)
+
+        # reset button
+        self.reset_reference_button = Button(label="Reset")
+        self.reset_reference_button.on_click(self._reset_reference)
+
+        self._x_ref_source = ColumnDataSource(dict(x=[], y=[], color=[]))
+        self._y_ref_source = ColumnDataSource(dict(x=[], y=[], color=[]))
+
+        # plot
+        self.x_plot.line(x="x", y="y", source=self._x_ref_source)
+        self.y_plot.line(x="x", y="y", source=self._y_ref_source)
+
     def update_table(self, table: dict) -> None:
         """Assign new table variable.
         
@@ -135,9 +156,14 @@ class OrbitDisplay:
 
         self._z = []
 
-        # cagetmany
+        # caget_many
         for row, value in table.table_data["Z"].items():
             self._z.append(value)
+
+        self._x_ref_source.data.update({"x": [], "y": [], "color": []})
+        self._y_ref_source.data.update({"x": [], "y": [], "color": []})
+
+        self._reference_measurements = {"X": {row: [] for row in table.rows}, "Y": {row: [] for row in table.rows}}
 
 
     def update(self) -> None:
@@ -147,6 +173,8 @@ class OrbitDisplay:
 
         """
         vals = self._monitor.poll()
+
+
         if self._color_monitor is not None:
             color_val = self._color_monitor.poll()
             idx = (np.abs(self._extents - color_val)).argmin()
@@ -156,6 +184,49 @@ class OrbitDisplay:
             # use default gray color
             color = ["#695f5e" for device in vals["X"] ]
 
+        # if collecting reference, update values
+        if self._collecting_reference:
+            self._reference_count -= 1
+
+            for device in vals["X"]:
+                self._reference_measurements["X"][device].append(vals["X"][device])
+            
+            for device in vals["Y"]:
+                self._reference_measurements["Y"][device].append(vals["Y"][device])
+
+            # check n remaining
+            if self._reference_count == 0:
+                self._collecting_reference=False
+
+
+                x_mean = [np.mean([x for x in self._reference_measurements["X"][device] if x != None]) for device in self._reference_measurements["X"]]
+                x_line_z = [self._z[i] for i, x in enumerate(x_mean) if not np.isnan(x)]
+                x_mean = [x for x in x_mean if not np.isnan(x)]
+
+                y_mean = [np.mean([y for y in self._reference_measurements["Y"][device] if y != None]) for device in self._reference_measurements["Y"]]
+                y_line_z = [self._z[i] for i, y in enumerate(y_mean) if not np.isnan(y)]
+                y_mean = [y for y in y_mean if not np.isnan(y)]
+
+
+                for device in self._reference_measurements["X"]:
+                    self._reference_measurements["X"][device] = []
+                
+                for device in self._reference_measurements["Y"]:
+                    self._reference_measurements["Y"][device] = []
+
+                # reset
+                self._reference_count = self._reference_n
+
+                x_line_color = [self._color_map[idx] for device in x_mean]
+                y_line_color = [self._color_map[idx] for device in x_mean]
+
+                # update plot
+                self._x_ref_source.data.update({"x": x_line_z, "y": x_mean, "color": x_line_color})
+                self._y_ref_source.data.update({"x": y_line_z, "y": y_mean, "color": y_line_color})
+
+
+
+                
         devices = [device for device in vals['X']]
         x = np.array([vals["X"][device] for device in vals["X"]], dtype=np.float64)
         y = np.array([vals["Y"][device] for device in vals["Y"]], dtype=np.float64)
@@ -188,3 +259,9 @@ class OrbitDisplay:
         self._color_monitor = PVScalar(color_var, self._controller)
 
 
+    def _collect_reference(self):
+        self._collecting_reference = True
+
+    def _reset_reference(self):
+        self._x_ref_source.data.update({"x": [], "y": [], "color": []})
+        self._y_ref_source.data.update({"x": [], "y": [], "color": []})
