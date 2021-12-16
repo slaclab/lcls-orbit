@@ -67,7 +67,7 @@ controller = Controller("ca", variables, {}, prefix=None, auto_monitor=False, mo
 
 # create longitudinal plot
 long_plot = OrbitDisplay(
-    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=Blues9, extents=[0,5], bar_width=5
+    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=Blues9, extents=[0,5], bar_width=5, reference_n=30
 )
 
 label = Div(
@@ -102,12 +102,14 @@ menu = [("SXR", "sxr"), ("HXR", "hxr")]
 dropdown = Dropdown(label="Beamline", button_type="default", menu=menu)
 dropdown.on_click(toggle_callback)
 
+
+
 # render
 curdoc().theme = 'light_minimal'
 curdoc().title = "Demo App"
 curdoc().add_root(
     column(
-        row(column(dropdown), column(label)),
+        row(column(dropdown), column(label), column(long_plot.reference_button), column(long_plot.reset_reference_button)),
         long_plot.x_plot,
         long_plot.y_plot,
     )
