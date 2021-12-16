@@ -39,7 +39,7 @@ $ configure-epics-remote
 
 ### Launch client
 ```
-$ bokeh serve examples/lcls_orbit_display --port 5006 --show
+$ bokeh serve examples/lcls_orbit_display --port 5006 --show 
 ```
 
 ### Running on mcc-simul
@@ -48,7 +48,7 @@ If running on mcc-simul, no remote EPICS configuration is needed. Instead:
 
 Start client process:
 ```
-$ bokeh serve examples/lcls_orbit_display --port 5006 &
+$ bokeh serve examples/lcls_orbit_display --port 5006 --num-proc 3 &
 ```
 
 Open port forwarding:
@@ -80,9 +80,10 @@ Using local browser, navigate to http://localhost:5006
 
 
 - [ ] Functionality to show difference to reference, button to collect reference
- - 0 reference button, collect 500
- - Plot difference of pv value to the reference
- - Toggle referenced view on/off
+- 0 reference button, collect 500
+- [x] Plot difference of pv value to the reference
+- Toggle referenced view on/off
+- [ ] Improve rendering
 
 What do BPMS serve already?
 - [ ] Colormap on side
