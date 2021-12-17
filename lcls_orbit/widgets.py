@@ -1,10 +1,10 @@
 from typing import List, Dict
 import logging
 import numpy as np
+from datetime import datetime
 
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, Span, Button, ColorBar, LinearColorMapper
-from bokeh.palettes import Blues9, Reds9
+from bokeh.models import ColumnDataSource, Span, Button, ColorBar, LinearColorMapper, Dropdown
 
 from lume_model.variables import TableVariable, ScalarVariable
 from lume_epics.client.controller import (
@@ -13,6 +13,7 @@ from lume_epics.client.controller import (
 from lume_epics.client.monitors import PVTable, PVScalar
 from bokeh.models import HoverTool
 
+from lcls_orbit import SXR_COLORS, HXR_COLORS
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ class OrbitDisplay:
         color_var: ScalarVariable = None,
         color_map: list = None,
         extents: list = None,
-        reference_n: int = 15
+        reference_n: int = 15,
+        active_beamline: str = "hxr",
     ):
 
         # construct z
@@ -132,30 +134,42 @@ class OrbitDisplay:
         self.y_plot.xaxis.axis_label = "z (m)"
         self.y_plot.outline_line_color = None
 
+        # track devices 
+        self._devices = table.rows
+
         # indicator whether collecting reference
         self._collecting_reference = False
+
         # store reference
-        self._reference_measurements = {"X": {row: [] for row in table.rows}, "Y": {row: [] for row in table.rows}}
+        self._reference_measurements = {"X": {device: [] for device in self._devices}, "Y": {device: [] for device in self._devices}}
+        self._active_reference = {"X": {device: 0 for device in self._devices}, "Y": {device: 0 for device in self._devices}}
+        self._active_reference_timestamp = None
+        self._reference_registry = {"sxr": {}, "hxr": {}}
+        self._active_beamline = active_beamline
+
         # how many reference steps to collect
         self._reference_n = reference_n
         self._reference_count = reference_n
+
         # reference button
         self.reference_button = Button(label="Collect Reference")
         self.reference_button.on_click(self._collect_reference)
+
+        # save reference button
+        self.save_reference_button = Button(label="Save Reference")
+        self.save_reference_button.on_click(self._save_reference)
 
         # reset button
         self.reset_reference_button = Button(label="Reset")
         self.reset_reference_button.on_click(self._reset_reference)
 
-        self._x_ref_source = ColumnDataSource(dict(x=[], y=[]))
-        self._y_ref_source = ColumnDataSource(dict(x=[], y=[]))
+        # reset button
+        self.compare_reference_dropdown = Dropdown(label="Set Reference", menu=[])
+        self.compare_reference_dropdown.on_click(self._set_reference)
 
-        # plot
-        self._x_ref_line = self.x_plot.line(x="x", y="y", source=self._x_ref_source)
-        self._y_ref_line = self.y_plot.line(x="x", y="y", source=self._y_ref_source)
-
-        sxr_color_mapper = LinearColorMapper(palette=Reds9, low=extents[0], high=extents[1])
-        hxr_color_mapper = LinearColorMapper(palette=Blues9, low=extents[0], high=extents[1])
+        # add color bars
+        sxr_color_mapper = LinearColorMapper(palette=SXR_COLORS, low=extents[0], high=extents[1])
+        hxr_color_mapper = LinearColorMapper(palette=HXR_COLORS, low=extents[0], high=extents[1])
 
         self.sxr_color_bar = ColorBar(color_mapper=sxr_color_mapper)
         self.hxr_color_bar = ColorBar(color_mapper=hxr_color_mapper)
@@ -177,10 +191,10 @@ class OrbitDisplay:
         for row, value in table.table_data["Z"].items():
             self._z.append(value)
 
-        self._x_ref_source.data.update({"x": [], "y": []})
-        self._y_ref_source.data.update({"x": [], "y": []})
 
         self._reference_measurements = {"X": {row: [] for row in table.rows}, "Y": {row: [] for row in table.rows}}
+        self._devices =  table.rows
+        self._active_reference = {"X": {device: 0 for device in self._devices}, "Y": {device: 0 for device in self._devices}}
 
 
     def update(self) -> None:
@@ -202,6 +216,7 @@ class OrbitDisplay:
             # use default gray color
             colors = ["#695f5e" for device in vals["X"] ]
 
+
         # if collecting reference, update values
         if self._collecting_reference:
             self._reference_count -= 1
@@ -216,34 +231,42 @@ class OrbitDisplay:
             if self._reference_count == 0:
                 self._collecting_reference=False
 
+                for device in self._devices:
+                    x_mean = np.mean([x for x in self._reference_measurements["X"][device] if x != None])
+                    y_mean = np.mean([y for y in self._reference_measurements["Y"][device] if y != None])
 
-                x_mean = [np.mean([x for x in self._reference_measurements["X"][device] if x != None]) for device in self._reference_measurements["X"]]
-                x_line_z = [self._z[i] for i, x in enumerate(x_mean) if not np.isnan(x)]
-                x_mean = [x for x in x_mean if not np.isnan(x)]
+                    if not np.isnan(x_mean):
+                        self._active_reference["X"][device] = x_mean
 
-                y_mean = [np.mean([y for y in self._reference_measurements["Y"][device] if y != None]) for device in self._reference_measurements["Y"]]
-                y_line_z = [self._z[i] for i, y in enumerate(y_mean) if not np.isnan(y)]
-                y_mean = [y for y in y_mean if not np.isnan(y)]
+                    if not np.isnan(y_mean):
+                        self._active_reference["Y"][device] = y_mean
 
-
+                # reset
                 for device in self._reference_measurements["X"]:
                     self._reference_measurements["X"][device] = []
                 
                 for device in self._reference_measurements["Y"]:
                     self._reference_measurements["Y"][device] = []
 
+
+                # reset button
+                self.reference_button.label = "Collect reference"
+                self.reference_button.disabled = False
+                self._reference_count = 0
+
                 # reset
                 self._reference_count = self._reference_n
 
-                self._x_ref_line.glyph.line_color = color
-                self._y_ref_line.glyph.line_color = color
+
+        # modify vals w.r.t. reference
+        for device in vals["X"]:
+            if vals["X"][device] is not None:
+                vals["X"][device] = self._active_reference["X"][device] - vals["X"][device]
+        for device in vals["Y"]:
+            if vals["Y"][device] is not None:
+                vals["Y"][device] = self._active_reference["Y"][device] - vals["Y"][device]
 
 
-                # update plot
-                self._x_ref_source.data.update({"x": x_line_z, "y": x_mean})
-                self._y_ref_source.data.update({"x": y_line_z, "y": y_mean})
-
-                
         devices = [device for device in vals['X']]
         x = np.array([vals["X"][device] for device in vals["X"]], dtype=np.float64)
         y = np.array([vals["Y"][device] for device in vals["Y"]], dtype=np.float64)
@@ -277,7 +300,32 @@ class OrbitDisplay:
 
     def _collect_reference(self):
         self._collecting_reference = True
+        self.reference_button.label = "Collecting"
+        self.reference_button.disabled = True
+        self._active_reference_timestamp = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
     def _reset_reference(self):
-        self._x_ref_source.data.update({"x": [], "y": [], "color": []})
-        self._y_ref_source.data.update({"x": [], "y": [], "color": []})
+        self._active_reference = {"X": {device: 0 for device in self._devices}, "Y": {device: 0 for device in self._devices}}
+        self._active_reference_timestamp = None
+
+    def _save_reference(self):
+        self._reference_registry[self._active_beamline][self._active_reference_timestamp] = self._active_reference
+        self.compare_reference_dropdown.menu += [(self._active_reference_timestamp, self._active_reference_timestamp)]
+
+    def _set_reference(self, event):
+        self._active_reference = self._reference_registry[self._active_beamline][event.item]
+
+    def toggle_beamline(self, beamline, table_var, shading_var):
+        self._active_beamline = beamline
+        self.update_table(table_var)
+
+        if beamline == "sxr":
+            self.update_colormap(shading_var, SXR_COLORS, extents = [0,5])
+            self.hxr_color_bar.visible=False
+            self.sxr_color_bar.visible=True
+        elif beamline == "hxr":
+            self.update_colormap(shading_var, HXR_COLORS, extents = [0,5])
+            self.hxr_color_bar.visible=True
+            self.sxr_color_bar.visible=False
+
+        self.compare_reference_dropdown.menu = [registered for registered in self._reference_registry[beamline]]

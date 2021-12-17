@@ -6,11 +6,12 @@ from bokeh.io import curdoc
 from bokeh.layouts import column, row
 
 from bokeh.models import CustomJS, Dropdown, Div, ColorBar, LinearColorMapper
-from bokeh.palettes import Blues9, Reds9
 from bokeh.themes import built_in_themes
 from lume_epics.client.controller import Controller
 from lume_model.variables import ScalarOutputVariable, TableVariable
 
+
+from lcls_orbit import SXR_COLORS, HXR_COLORS
 from lcls_orbit.widgets import OrbitDisplay
 
 hxr_df= pd.read_csv("./examples/files/cu_hxr_basic.csv")
@@ -67,7 +68,7 @@ controller = Controller("ca", variables, {}, prefix=None, auto_monitor=False, mo
 
 # create longitudinal plot
 long_plot = OrbitDisplay(
-    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=Blues9, extents=[0,5], bar_width=5, reference_n=30
+    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=HXR_COLORS, extents=[0,5], bar_width=5, reference_n=15
 )
 
 label = Div(
@@ -89,19 +90,13 @@ def toggle_callback(event):
     if event.item == "sxr":
         label.text="<b>SXR</b>"
         label.style.update({"color":  "#c40000"})
-        long_plot.update_table(sxr_table_var)
-        long_plot.update_colormap(sxr_shading_var, Reds9, extents = [0,5])
-        long_plot.hxr_color_bar.visible=False
-        long_plot.sxr_color_bar.visible=True
+        long_plot.toggle_beamline("sxr", sxr_table_var, sxr_shading_var)
+
 
     elif event.item == "hxr":
         label.text="<b>HXR</b>"
         label.style.update({"color": "#3881e8"})
-        long_plot.update_table(hxr_table_var)
-        long_plot.update_colormap(hxr_shading_var, Blues9, extents = [0,5])
-        long_plot.hxr_color_bar.visible=True
-        long_plot.sxr_color_bar.visible=False
-
+        long_plot.toggle_beamline("hxr", hxr_table_var, hxr_shading_var)
 
 
 menu = [("SXR", "sxr"), ("HXR", "hxr")]
@@ -113,10 +108,11 @@ dropdown.on_click(toggle_callback)
 
 # render
 curdoc().theme = 'light_minimal'
-curdoc().title = "Demo App"
+curdoc().title = "LCLS Orbit Display"
 curdoc().add_root(
     column(
-        row(column(dropdown), column(label), column(long_plot.reference_button), column(long_plot.reset_reference_button)),
+        row(column(dropdown), label),
+        row(column(long_plot.compare_reference_dropdown), column(long_plot.reference_button),column(long_plot.save_reference_button), column(long_plot.reset_reference_button)),
         long_plot.x_plot, 
         long_plot.y_plot
     )
