@@ -1,10 +1,10 @@
 from typing import List, Dict
 import logging
 import numpy as np
+from datetime import datetime
 
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, Span
-
+from bokeh.models import ColumnDataSource, Span, Button, ColorBar, LinearColorMapper, Dropdown
 
 from lume_model.variables import TableVariable, ScalarVariable
 from lume_epics.client.controller import (
@@ -13,6 +13,7 @@ from lume_epics.client.controller import (
 from lume_epics.client.monitors import PVTable, PVScalar
 from bokeh.models import HoverTool
 
+from lcls_orbit import SXR_COLORS, HXR_COLORS
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,8 @@ class OrbitDisplay:
         color_var: ScalarVariable = None,
         color_map: list = None,
         extents: list = None,
+        reference_n: int = 15,
+        active_beamline: str = "hxr",
     ):
 
         # construct z
@@ -56,8 +59,6 @@ class OrbitDisplay:
                 raise ValueError("Color map not provided.")
             else:
                 self._color_map = color_map
-
-            
 
         if not bar_width:
             self._bar_width = (max(self._z) - min(self._z)) / (len(self._z) + 1)
@@ -89,6 +90,9 @@ class OrbitDisplay:
         self.x_plot.xgrid.grid_line_color = None
         self.x_plot.ygrid.grid_line_color = None
 
+        self.x_plot.xaxis.ticker.desired_num_ticks = 10
+        self.x_plot.xaxis.ticker.num_minor_ticks = 10
+
         if longitudinal_labels:
             self.x_plot.xaxis.ticker = list(longitudinal_labels.keys())
             self.x_plot.xaxis.major_label_overrides = longitudinal_labels
@@ -101,7 +105,7 @@ class OrbitDisplay:
         tooltips_y = [
             ("device", "@device"),
             ("value", "@y"),
-            ("location", "@x")
+            ("location", "@x{0.0}")
         ]
 
         y_hover = HoverTool(tooltips=tooltips_y)
@@ -119,13 +123,61 @@ class OrbitDisplay:
         self.y_plot.xgrid.grid_line_color = None
         self.y_plot.ygrid.grid_line_color = None
 
+        self.y_plot.xaxis.ticker.desired_num_ticks = 10
+        self.y_plot.xaxis.ticker.num_minor_ticks = 10
+
         if longitudinal_labels:
-            self.y_plot.xaxis.ticker = list(longitudinal_labels.keys())
+         #   self.y_plot.xaxis.ticker = list(longitudinal_labels.keys())
             self.y_plot.xaxis.major_label_overrides = longitudinal_labels
 
         self.y_plot.ygrid.grid_line_color = None
         self.y_plot.xaxis.axis_label = "z (m)"
         self.y_plot.outline_line_color = None
+
+        # track devices 
+        self._devices = table.rows
+
+        # indicator whether collecting reference
+        self._collecting_reference = False
+
+        # store reference
+        self._reference_measurements = {"X": {device: [] for device in self._devices}, "Y": {device: [] for device in self._devices}}
+        self._active_reference = {"X": {device: 0 for device in self._devices}, "Y": {device: 0 for device in self._devices}}
+        self._active_reference_timestamp = None
+        self._reference_registry = {"sxr": {}, "hxr": {}}
+        self._active_beamline = active_beamline
+
+        # how many reference steps to collect
+        self._reference_n = reference_n
+        self._reference_count = reference_n
+
+        # reference button
+        self.reference_button = Button(label="Collect Reference")
+        self.reference_button.on_click(self._collect_reference)
+
+        # save reference button
+        self.save_reference_button = Button(label="Save Reference")
+        self.save_reference_button.on_click(self._save_reference)
+
+        # reset button
+        self.reset_reference_button = Button(label="Reset")
+        self.reset_reference_button.on_click(self._reset_reference)
+
+        # reset button
+        self.compare_reference_dropdown = Dropdown(label="Set Reference", menu=[])
+        self.compare_reference_dropdown.on_click(self._set_reference)
+
+        # add color bars
+        sxr_color_mapper = LinearColorMapper(palette=SXR_COLORS, low=extents[0], high=extents[1])
+        hxr_color_mapper = LinearColorMapper(palette=HXR_COLORS, low=extents[0], high=extents[1])
+
+        self.sxr_color_bar = ColorBar(color_mapper=sxr_color_mapper)
+        self.hxr_color_bar = ColorBar(color_mapper=hxr_color_mapper)
+
+        self.x_plot.add_layout(self.sxr_color_bar, 'right')
+        self.x_plot.add_layout(self.hxr_color_bar, 'right')
+
+        self.sxr_color_bar.visible = False
 
     def update_table(self, table: dict) -> None:
         """Assign new table variable.
@@ -135,9 +187,14 @@ class OrbitDisplay:
 
         self._z = []
 
-        # cagetmany
+        # caget_many
         for row, value in table.table_data["Z"].items():
             self._z.append(value)
+
+
+        self._reference_measurements = {"X": {row: [] for row in table.rows}, "Y": {row: [] for row in table.rows}}
+        self._devices =  table.rows
+        self._active_reference = {"X": {device: 0 for device in self._devices}, "Y": {device: 0 for device in self._devices}}
 
 
     def update(self) -> None:
@@ -147,14 +204,68 @@ class OrbitDisplay:
 
         """
         vals = self._monitor.poll()
+
+
         if self._color_monitor is not None:
             color_val = self._color_monitor.poll()
             idx = (np.abs(self._extents - color_val)).argmin()
-            color = [self._color_map[idx] for device in vals["X"]]
+            color = self._color_map[idx]
+            colors = [color for device in vals["X"]]
 
         else:
             # use default gray color
-            color = ["#695f5e" for device in vals["X"] ]
+            colors = ["#695f5e" for device in vals["X"] ]
+
+
+        # if collecting reference, update values
+        if self._collecting_reference:
+            self._reference_count -= 1
+
+            for device in vals["X"]:
+                self._reference_measurements["X"][device].append(vals["X"][device])
+            
+            for device in vals["Y"]:
+                self._reference_measurements["Y"][device].append(vals["Y"][device])
+
+            # check n remaining
+            if self._reference_count == 0:
+                self._collecting_reference=False
+
+                for device in self._devices:
+                    x_mean = np.mean([x for x in self._reference_measurements["X"][device] if x != None])
+                    y_mean = np.mean([y for y in self._reference_measurements["Y"][device] if y != None])
+
+                    if not np.isnan(x_mean):
+                        self._active_reference["X"][device] = x_mean
+
+                    if not np.isnan(y_mean):
+                        self._active_reference["Y"][device] = y_mean
+
+                # reset
+                for device in self._reference_measurements["X"]:
+                    self._reference_measurements["X"][device] = []
+                
+                for device in self._reference_measurements["Y"]:
+                    self._reference_measurements["Y"][device] = []
+
+
+                # reset button
+                self.reference_button.label = "Collect reference"
+                self.reference_button.disabled = False
+                self._reference_count = 0
+
+                # reset
+                self._reference_count = self._reference_n
+
+
+        # modify vals w.r.t. reference
+        for device in vals["X"]:
+            if vals["X"][device] is not None:
+                vals["X"][device] = self._active_reference["X"][device] - vals["X"][device]
+        for device in vals["Y"]:
+            if vals["Y"][device] is not None:
+                vals["Y"][device] = self._active_reference["Y"][device] - vals["Y"][device]
+
 
         devices = [device for device in vals['X']]
         x = np.array([vals["X"][device] for device in vals["X"]], dtype=np.float64)
@@ -175,8 +286,8 @@ class OrbitDisplay:
             )
             self.y_plot.add_layout(hline)
 
-        self._x_source.data.update({"x": self._z, "y": x, "device": devices, "color": color})
-        self._y_source.data.update({"x": self._z, "y": y, "device": devices, "color": color})
+        self._x_source.data.update({"x": self._z, "y": x, "device": devices, "color": colors})
+        self._y_source.data.update({"x": self._z, "y": y, "device": devices, "color": colors})
 
     def update_colormap(self, color_var: ScalarVariable, cmap: list, extents: list):
         """Update colormap and assign new PV to track for color intensity. The plots will use 
@@ -187,4 +298,34 @@ class OrbitDisplay:
         self._extents = np.array(range(extents[0], extents[1], len(self._color_map)))
         self._color_monitor = PVScalar(color_var, self._controller)
 
+    def _collect_reference(self):
+        self._collecting_reference = True
+        self.reference_button.label = "Collecting"
+        self.reference_button.disabled = True
+        self._active_reference_timestamp = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
+    def _reset_reference(self):
+        self._active_reference = {"X": {device: 0 for device in self._devices}, "Y": {device: 0 for device in self._devices}}
+        self._active_reference_timestamp = None
+
+    def _save_reference(self):
+        self._reference_registry[self._active_beamline][self._active_reference_timestamp] = self._active_reference
+        self.compare_reference_dropdown.menu += [(self._active_reference_timestamp, self._active_reference_timestamp)]
+
+    def _set_reference(self, event):
+        self._active_reference = self._reference_registry[self._active_beamline][event.item]
+
+    def toggle_beamline(self, beamline, table_var, shading_var):
+        self._active_beamline = beamline
+        self.update_table(table_var)
+
+        if beamline == "sxr":
+            self.update_colormap(shading_var, SXR_COLORS, extents = [0,5])
+            self.hxr_color_bar.visible=False
+            self.sxr_color_bar.visible=True
+        elif beamline == "hxr":
+            self.update_colormap(shading_var, HXR_COLORS, extents = [0,5])
+            self.hxr_color_bar.visible=True
+            self.sxr_color_bar.visible=False
+
+        self.compare_reference_dropdown.menu = [registered for registered in self._reference_registry[beamline]]
