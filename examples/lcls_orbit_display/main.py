@@ -68,7 +68,7 @@ controller = Controller("ca", variables, {}, prefix=None, auto_monitor=False, mo
 
 # create longitudinal plot
 long_plot = OrbitDisplay(
-    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=HXR_COLORS, extents=[0,5], bar_width=5, reference_n=15
+    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=HXR_COLORS, extents=[0,5], bar_width=5, reference_n=100
 )
 
 label = Div(
