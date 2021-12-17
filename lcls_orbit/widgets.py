@@ -4,7 +4,7 @@ import numpy as np
 
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, Span, Button, ColorBar, LinearColorMapper
-
+from bokeh.palettes import Blues9, Reds9
 
 from lume_model.variables import TableVariable, ScalarVariable
 from lume_epics.client.controller import (
@@ -88,6 +88,9 @@ class OrbitDisplay:
         self.x_plot.xgrid.grid_line_color = None
         self.x_plot.ygrid.grid_line_color = None
 
+        self.x_plot.xaxis.ticker.desired_num_ticks = 10
+        self.x_plot.xaxis.ticker.num_minor_ticks = 10
+
         if longitudinal_labels:
             self.x_plot.xaxis.ticker = list(longitudinal_labels.keys())
             self.x_plot.xaxis.major_label_overrides = longitudinal_labels
@@ -100,7 +103,7 @@ class OrbitDisplay:
         tooltips_y = [
             ("device", "@device"),
             ("value", "@y"),
-            ("location", "@x")
+            ("location", "@x{0.0}")
         ]
 
         y_hover = HoverTool(tooltips=tooltips_y)
@@ -118,8 +121,11 @@ class OrbitDisplay:
         self.y_plot.xgrid.grid_line_color = None
         self.y_plot.ygrid.grid_line_color = None
 
+        self.y_plot.xaxis.ticker.desired_num_ticks = 10
+        self.y_plot.xaxis.ticker.num_minor_ticks = 10
+
         if longitudinal_labels:
-            self.y_plot.xaxis.ticker = list(longitudinal_labels.keys())
+         #   self.y_plot.xaxis.ticker = list(longitudinal_labels.keys())
             self.y_plot.xaxis.major_label_overrides = longitudinal_labels
 
         self.y_plot.ygrid.grid_line_color = None
@@ -141,19 +147,23 @@ class OrbitDisplay:
         self.reset_reference_button = Button(label="Reset")
         self.reset_reference_button.on_click(self._reset_reference)
 
-        self._x_ref_source = ColumnDataSource(dict(x=[], y=[], color=[]))
-        self._y_ref_source = ColumnDataSource(dict(x=[], y=[], color=[]))
+        self._x_ref_source = ColumnDataSource(dict(x=[], y=[]))
+        self._y_ref_source = ColumnDataSource(dict(x=[], y=[]))
 
         # plot
-        self.x_plot.line(x="x", y="y", source=self._x_ref_source)
-        self.y_plot.line(x="x", y="y", source=self._y_ref_source)
+        self._x_ref_line = self.x_plot.line(x="x", y="y", source=self._x_ref_source)
+        self._y_ref_line = self.y_plot.line(x="x", y="y", source=self._y_ref_source)
 
+        sxr_color_mapper = LinearColorMapper(palette=Reds9, low=extents[0], high=extents[1])
+        hxr_color_mapper = LinearColorMapper(palette=Blues9, low=extents[0], high=extents[1])
 
-        color_mapper = LinearColorMapper(palette=color_map, low=extents[0], high=extents[1])
-        self._color_bar = ColorBar(color_mapper=color_mapper)
+        self.sxr_color_bar = ColorBar(color_mapper=sxr_color_mapper)
+        self.hxr_color_bar = ColorBar(color_mapper=hxr_color_mapper)
 
+        self.x_plot.add_layout(self.sxr_color_bar, 'right')
+        self.x_plot.add_layout(self.hxr_color_bar, 'right')
 
-        self.x_plot.add_layout(self._color_bar, 'right')
+        self.sxr_color_bar.visible = False
 
     def update_table(self, table: dict) -> None:
         """Assign new table variable.
@@ -167,8 +177,8 @@ class OrbitDisplay:
         for row, value in table.table_data["Z"].items():
             self._z.append(value)
 
-        self._x_ref_source.data.update({"x": [], "y": [], "color": []})
-        self._y_ref_source.data.update({"x": [], "y": [], "color": []})
+        self._x_ref_source.data.update({"x": [], "y": []})
+        self._y_ref_source.data.update({"x": [], "y": []})
 
         self._reference_measurements = {"X": {row: [] for row in table.rows}, "Y": {row: [] for row in table.rows}}
 
@@ -185,11 +195,12 @@ class OrbitDisplay:
         if self._color_monitor is not None:
             color_val = self._color_monitor.poll()
             idx = (np.abs(self._extents - color_val)).argmin()
-            color = [self._color_map[idx] for device in vals["X"]]
+            color = self._color_map[idx]
+            colors = [color for device in vals["X"]]
 
         else:
             # use default gray color
-            color = ["#695f5e" for device in vals["X"] ]
+            colors = ["#695f5e" for device in vals["X"] ]
 
         # if collecting reference, update values
         if self._collecting_reference:
@@ -224,14 +235,13 @@ class OrbitDisplay:
                 # reset
                 self._reference_count = self._reference_n
 
-                x_line_color = [self._color_map[idx] for device in x_mean]
-                y_line_color = [self._color_map[idx] for device in x_mean]
+                self._x_ref_line.glyph.line_color = color
+                self._y_ref_line.glyph.line_color = color
+
 
                 # update plot
-                self._x_ref_source.data.update({"x": x_line_z, "y": x_mean, "color": x_line_color})
-                self._y_ref_source.data.update({"x": y_line_z, "y": y_mean, "color": y_line_color})
-
-
+                self._x_ref_source.data.update({"x": x_line_z, "y": x_mean})
+                self._y_ref_source.data.update({"x": y_line_z, "y": y_mean})
 
                 
         devices = [device for device in vals['X']]
@@ -253,8 +263,8 @@ class OrbitDisplay:
             )
             self.y_plot.add_layout(hline)
 
-        self._x_source.data.update({"x": self._z, "y": x, "device": devices, "color": color})
-        self._y_source.data.update({"x": self._z, "y": y, "device": devices, "color": color})
+        self._x_source.data.update({"x": self._z, "y": x, "device": devices, "color": colors})
+        self._y_source.data.update({"x": self._z, "y": y, "device": devices, "color": colors})
 
     def update_colormap(self, color_var: ScalarVariable, cmap: list, extents: list):
         """Update colormap and assign new PV to track for color intensity. The plots will use 
@@ -264,10 +274,6 @@ class OrbitDisplay:
         self._color_map = cmap
         self._extents = np.array(range(extents[0], extents[1], len(self._color_map)))
         self._color_monitor = PVScalar(color_var, self._controller)
-        self._color_bar.color_mapper.palette = cmap
-
-        
-
 
     def _collect_reference(self):
         self._collecting_reference = True

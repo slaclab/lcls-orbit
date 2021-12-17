@@ -91,12 +91,16 @@ def toggle_callback(event):
         label.style.update({"color":  "#c40000"})
         long_plot.update_table(sxr_table_var)
         long_plot.update_colormap(sxr_shading_var, Reds9, extents = [0,5])
+        long_plot.hxr_color_bar.visible=False
+        long_plot.sxr_color_bar.visible=True
 
     elif event.item == "hxr":
         label.text="<b>HXR</b>"
         label.style.update({"color": "#3881e8"})
         long_plot.update_table(hxr_table_var)
         long_plot.update_colormap(hxr_shading_var, Blues9, extents = [0,5])
+        long_plot.hxr_color_bar.visible=True
+        long_plot.sxr_color_bar.visible=False
 
 
 
