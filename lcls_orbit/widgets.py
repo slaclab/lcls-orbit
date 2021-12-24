@@ -4,16 +4,15 @@ import numpy as np
 from datetime import datetime
 
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource, Span, Button, ColorBar, LinearColorMapper, Dropdown
+from bokeh.models import ColumnDataSource, Span, Button, ColorBar, LinearColorMapper, Dropdown, LinearAxis, HoverTool, Div
 
 from lume_model.variables import TableVariable, ScalarVariable
 from lume_epics.client.controller import (
     Controller
 )
 from lume_epics.client.monitors import PVTable, PVScalar
-from bokeh.models import HoverTool
 
-from lcls_orbit import SXR_COLORS, HXR_COLORS
+from lcls_orbit import SXR_COLORS, HXR_COLORS, SXR_AREAS, HXR_AREAS
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +24,11 @@ class OrbitDisplay:
 
     def __init__(
         self,
-        table: TableVariable,
+        hxr_table: TableVariable,
+        sxr_table: TableVariable,
+        hxr_shading_var: ScalarVariable,
+        sxr_shading_var: ScalarVariable, 
         controller: Controller,
-        longitudinal_labels: Dict[float, str] = None,
         height: int = 400,
         width: int = 600,
         bar_width: int = None,
@@ -40,12 +41,25 @@ class OrbitDisplay:
 
         # construct z
         self._z = []
+        self._active_beamline = active_beamline
+
+        self._sxr_table = sxr_table
+        self._hxr_table = hxr_table
+        self._sxr_shading_var = sxr_shading_var
+        self._hxr_shading_var = hxr_shading_var
+
+        if self._active_beamline == "sxr":
+            table = self._sxr_table
+
+        elif self._active_beamline == "hxr": 
+            table = self._hxr_table
 
         for row, value in table.table_data["Z"].items():
             self._z.append(value)
 
         self._monitor = PVTable(table, controller)
         self._controller = controller
+
 
         # validate color inputs
         if color_var is not None:
@@ -93,10 +107,6 @@ class OrbitDisplay:
         self.x_plot.xaxis.ticker.desired_num_ticks = 10
         self.x_plot.xaxis.ticker.num_minor_ticks = 10
 
-        if longitudinal_labels:
-            self.x_plot.xaxis.ticker = list(longitudinal_labels.keys())
-            self.x_plot.xaxis.major_label_overrides = longitudinal_labels
-
         self.x_plot.ygrid.grid_line_color = None
         self.x_plot.xaxis.axis_label = "z (m)"
         self.x_plot.outline_line_color = None
@@ -126,10 +136,6 @@ class OrbitDisplay:
         self.y_plot.xaxis.ticker.desired_num_ticks = 10
         self.y_plot.xaxis.ticker.num_minor_ticks = 10
 
-        if longitudinal_labels:
-         #   self.y_plot.xaxis.ticker = list(longitudinal_labels.keys())
-            self.y_plot.xaxis.major_label_overrides = longitudinal_labels
-
         self.y_plot.ygrid.grid_line_color = None
         self.y_plot.xaxis.axis_label = "z (m)"
         self.y_plot.outline_line_color = None
@@ -146,6 +152,20 @@ class OrbitDisplay:
         self._active_reference_timestamp = None
         self._reference_registry = {"sxr": {}, "hxr": {}}
         self._active_beamline = active_beamline
+
+        self.label = Div(
+            text="<b>HXR</b>",
+            style={
+                "font-size": "150%",
+                "color": "#3881e8",
+                "text-align": "center",
+                "width": "100%",
+            },
+        )
+
+        menu = [("SXR", "sxr"), ("HXR", "hxr")]
+        self.beamline_selection_dropdown = Dropdown(label="Beamline", button_type="default", menu=menu)
+        self.beamline_selection_dropdown.on_click(self._toggle_callback)
 
         # how many reference steps to collect
         self._reference_n = reference_n
@@ -178,6 +198,35 @@ class OrbitDisplay:
         self.x_plot.add_layout(self.hxr_color_bar, 'right')
 
         self.sxr_color_bar.visible = False
+
+        self.x_plot.extra_x_ranges = {"locations": self.x_plot.x_range}
+        self._location_axis = LinearAxis(x_range_name="locations")
+        self._location_axis.major_label_orientation = "vertical"
+
+        if self._active_beamline == "sxr":
+            self._location_axis.ticker = list(SXR_AREAS.keys())
+            self._location_axis.major_label_overrides = SXR_AREAS
+
+        elif self._active_beamline == "hxr":
+            self._location_axis.ticker = list(HXR_AREAS.keys())
+            self._location_axis.major_label_overrides = HXR_AREAS
+
+        self.x_plot.add_layout(self._location_axis, 'above')
+
+    
+    def _toggle_callback(self, event):
+        if event.item == "sxr":
+            self.label.text="<b>SXR</b>"
+            self.label.style.update({"color":  "#c40000"})
+            self.toggle_beamline("sxr")
+
+
+        elif event.item == "hxr":
+            self.label.text="<b>HXR</b>"
+            self.label.style.update({"color": "#3881e8"})
+            self.toggle_beamline("hxr")
+
+
 
     def update_table(self, table: dict) -> None:
         """Assign new table variable.
@@ -315,16 +364,18 @@ class OrbitDisplay:
     def _set_reference(self, event):
         self._active_reference = self._reference_registry[self._active_beamline][event.item]
 
-    def toggle_beamline(self, beamline, table_var, shading_var):
+    def toggle_beamline(self, beamline):
         self._active_beamline = beamline
-        self.update_table(table_var)
 
         if beamline == "sxr":
-            self.update_colormap(shading_var, SXR_COLORS, extents = [0,5])
+            self.update_table(self._sxr_table)
+            self.update_colormap(self._sxr_shading_var, SXR_COLORS, extents = [0,5])
             self.hxr_color_bar.visible=False
             self.sxr_color_bar.visible=True
+
         elif beamline == "hxr":
-            self.update_colormap(shading_var, HXR_COLORS, extents = [0,5])
+            self.update_table(self._hxr_table)
+            self.update_colormap(self._hxr_shading_var, HXR_COLORS, extents = [0,5])
             self.hxr_color_bar.visible=True
             self.sxr_color_bar.visible=False
 
