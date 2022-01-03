@@ -77,18 +77,18 @@ Using local browser, navigate to http://localhost:5006
 - [x] Color maps
 - [x] Toggle hard/soft
 
+- [ ] Move beamline toggle into widget
 
-
-- [ ] Functionality to show difference to reference, button to collect reference
-- 0 reference button, collect 500
+- [x] Functionality to show difference to reference, button to collect reference
+- [x] 0 reference button, collect 500
+- [ ] Tracked collections
+- [ ] Collection status reflected by button
 - [x] Plot difference of pv value to the reference
 - Toggle referenced view on/off
 - [ ] Improve rendering
-
-What do BPMS serve already?
-- [ ] Colormap on side
+- [x] Colormap on side
+- [ ] Legend for color map
 - [ ] (maybe, tbd) Bar showing RMS fluctuations
 - [ ] Check out device attributes and report back
-- [ ] Add more ticks to z
-- [ ] Add area
-- 
+- [x] Add more ticks to z
+- [ ] Add area fill in for reference collections

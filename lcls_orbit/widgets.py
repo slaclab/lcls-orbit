@@ -305,7 +305,6 @@ class OrbitDisplay:
 
                 # reset
                 self._reference_count = self._reference_n
-                self._active_reference_timestamp = None
 
 
         # modify vals w.r.t. reference
@@ -361,6 +360,7 @@ class OrbitDisplay:
     def _save_reference(self):
         self._reference_registry[self._active_beamline][self._active_reference_timestamp] = self._active_reference
         self.compare_reference_dropdown.menu += [(self._active_reference_timestamp, self._active_reference_timestamp)]
+        self._active_reference_timestamp = None
 
     def _set_reference(self, event):
         self._active_reference = self._reference_registry[self._active_beamline][event.item]
