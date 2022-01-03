@@ -65,45 +65,10 @@ variables['EM1K0:GMD:HPS:milliJoulesPerPulse'] = sxr_shading_var
 controller = Controller("ca", variables, {}, prefix=None, auto_monitor=False, monitor_poll_timeout=0.01)
 
 
-
 # create longitudinal plot
 long_plot = OrbitDisplay(
-    hxr_table_var, controller, width=1024, color_var= hxr_shading_var, color_map=HXR_COLORS, extents=[0,5], bar_width=5, reference_n=100
+    hxr_table_var, sxr_table_var, hxr_shading_var, sxr_shading_var, controller, width=1024, color_var= hxr_shading_var, color_map=HXR_COLORS, extents=[0,5], bar_width=5, reference_n=100
 )
-
-label = Div(
-    text="<b>HXR</b>",
-    style={
-        "font-size": "150%",
-        "color": "#3881e8",
-        "text-align": "center",
-        "width": "100%",
-    },
-)
-
-
-
-def toggle_callback(event):
-    """Callback for toggle events.
-    
-    """
-    if event.item == "sxr":
-        label.text="<b>SXR</b>"
-        label.style.update({"color":  "#c40000"})
-        long_plot.toggle_beamline("sxr", sxr_table_var, sxr_shading_var)
-
-
-    elif event.item == "hxr":
-        label.text="<b>HXR</b>"
-        label.style.update({"color": "#3881e8"})
-        long_plot.toggle_beamline("hxr", hxr_table_var, hxr_shading_var)
-
-
-menu = [("SXR", "sxr"), ("HXR", "hxr")]
-
-dropdown = Dropdown(label="Beamline", button_type="default", menu=menu)
-dropdown.on_click(toggle_callback)
-
 
 
 # render
@@ -111,10 +76,10 @@ curdoc().theme = 'light_minimal'
 curdoc().title = "LCLS Orbit Display"
 curdoc().add_root(
     column(
-        row(column(dropdown), label),
+        row(column(long_plot.beamline_selection_dropdown), long_plot.label),
         row(column(long_plot.compare_reference_dropdown), column(long_plot.reference_button),column(long_plot.save_reference_button), column(long_plot.reset_reference_button)),
         long_plot.x_plot, 
-        long_plot.y_plot
+        long_plot.y_plot,
     )
 )
 
