@@ -305,6 +305,7 @@ class OrbitDisplay:
 
                 # reset
                 self._reference_count = self._reference_n
+                self._active_reference_timestamp = None
 
 
         # modify vals w.r.t. reference
@@ -380,3 +381,20 @@ class OrbitDisplay:
             self.sxr_color_bar.visible=False
 
         self.compare_reference_dropdown.menu = [registered for registered in self._reference_registry[beamline]]
+
+        # reset
+        self._active_reference_timestamp = None
+
+        for device in self._reference_measurements["X"]:
+            self._reference_measurements["X"][device] = []
+        
+        for device in self._reference_measurements["Y"]:
+            self._reference_measurements["Y"][device] = []
+
+        self.reference_button.label = "Collect reference"
+        self.reference_button.disabled = False
+        self._reference_count = 0
+
+        self._reference_count = self._reference_n
+
+
